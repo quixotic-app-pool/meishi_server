@@ -5,7 +5,7 @@
  * @Project: one_server
  * @Filename: Route.js
  * @Last modified by:   mymac
- * @Last modified time: 2017-12-21T14:01:18+08:00
+ * @Last modified time: 2017-12-21T16:50:46+08:00
  */
 
   var express = require('express');
@@ -280,6 +280,8 @@
 
  //APP side api
  router.get('/api/fetchlist', function(req, res) {
+   // TODO:
+   //I dont know whatis happening most time data is not availbale from this
    var data = req.query;
    console.log("request regarding list: " + CircularJSON.stringify(data));
    // page start from 0
@@ -287,11 +289,12 @@
      limit: 10,
      skip: 10 * data.page
    }
+   console.log('data.type: ' + data.type);
    RecipeModel.find( { type: data.type }, {}, option, function(err, data){
      if(err) return err;
-     console.log('this is ok');
      var arrs = [];
      var obj = {};
+     console.log("data: " + data);
      data.forEach(function(item){
        obj = {title: item.title, imgUrl: item.mainImgUrl};
        arrs.push(obj)
@@ -307,7 +310,7 @@
    var option = {
      limit: 5
    }
-   var arr = ['本周流行菜谱', '热门项目', '活动折扣', '最新上架']
+   var arr = ['活动折扣', '热门项目', '最新上架']
    var pack = []
    var obj = {};
    var typeArray = []
@@ -317,7 +320,7 @@
        console.log('main page content bingo!');
        typeArray = []
        data.forEach(function(item){
-         obj = {title: item.title, imgUrl: item.mainImgUrl, tag: item.tag};
+         obj = {title: item.title, imgUrl: item.mainImgUrl, tag: item.tag, _id: item._id};
          typeArray.push(obj)
        })
        obj = {type: type, data: typeArray}
@@ -327,7 +330,6 @@
         if (err) {
           console.error(err.message);
         } else {
-          console.log('main page data: ' + CircularJSON.stringify(pack));
           res.json({success: 'main page content is ready', data: pack})
         }
     });
@@ -362,10 +364,10 @@
 
 router.get('/api/fetchrecipe', function(req, res) {
   var data = req.query
-  console.log('something');
+  // console.log('fetchrecipe: ' + JSON.stringify(data));
   RecipeModel.findById(ObjectId(data.id), function(err, data) {
     if(err) return err;
-    console.log('getting recipe detail: ' + JSON.stringify(data));
+    // console.log('getting recipe detail: ' + JSON.stringify(data));
     res.json({success: 'ok', data: data})
   })
 })
