@@ -10,10 +10,14 @@
   "license": "ISC",
   "dependencies": {
     "@alicloud/sms-sdk": "^1.0.2",
+    "async": "^2.6.0",
     "body-parser": "^1.18.2",
     "dateformat": "^3.0.2",
     "express": "^4.16.2",
-    "mongoose": "^4.13.6"
+    "http": "0.0.0",
+    "mongojs": "^2.4.1",
+    "mongoose": "^4.13.6",
+    "socket.io": "^2.0.4"
   },
   "devDependencies": {
     "circular-json": "^0.4.0"

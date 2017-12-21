@@ -5,12 +5,13 @@
  * @Project: one_server
  * @Filename: Route.js
  * @Last modified by:   mymac
- * @Last modified time: 2017-12-06T16:47:14+08:00
+ * @Last modified time: 2017-12-21T14:01:18+08:00
  */
 
   var express = require('express');
   var dateFormat = require('dateformat');
   var CircularJSON = require('circular-json');
+  var myAsync = require('async')
   //nnd，multer 比较娇贵，只能走这了
 
   var router = express.Router();
@@ -22,6 +23,10 @@
   var RecipeModel = require("../models/recipe");
   var UserModel = require("../models/user");
   var CategoryModel = require("../models/category");
+  var mongoose = require('mongoose');
+  const ObjectId = mongoose.Types.ObjectId
+
+  var aliService = require('../aliyun/AliService')
 
   //Middle ware that is specific to this router
  router.use(function timeLog(req, res, next) {
@@ -143,8 +148,54 @@
      })
  });
 
- router.post('/api/verify', function(req, res) {
+ router.post('/api/requestcode', function(req, res) {
+   var phoneNumber = req.body.number;
    //need to interact with ali code
+   aliService.sendSMS(phoneNumber, function(num, sixdigitcode) {
+     //check if phonenumber is used or not
+     UserModel.findOne({number: num}, function(err, data) {
+       console.log('inside callback');
+       console.log('err: ' + err);
+       console.log('data: ' + data);
+       if(err) {
+         return err
+       } else {
+         if(!data) {
+           //new user
+           var userEntity = new UserModel({
+              number: phoneNumber,
+              sixdigitcode: sixdigitcode
+           })
+           userEntity.save(function(err, docs){
+               if(err) console.log(err);
+           })
+         } else {
+           data.sixdigitcode = sixdigitcode;
+           data.save();
+         }
+         console.log('ali message has been sent');
+         res.json({success: true})
+       }
+     })
+   })
+ });
+ router.post('/api/verify', function(req, res) {
+   var sixdigitcode = req.body.sixdigitcode;
+   var number = req.body.number
+   //need to interact with ali code
+     UserModel.findOne({number: number}, function(err, data) {
+       if(err) return err;
+       if(!data) {
+         //err: 0, '电话号码不正确'; err: 1, '验证码不正确'
+          res.send({err: 0})
+       } else {
+          if(data.sixdigitcode !== sixdigitcode) {
+            res.send({err: 1})
+          } else {
+            res.send({err: null})
+          }
+       }
+   })
  });
  router.post('/api/addfavoriteitem', function(req, res) {
    var data = req.body.pack;
@@ -216,5 +267,121 @@
      res.json(obj)
    })
  });
+ router.get('/api/customerservice', function(req, res) {
+   //here we need to offer an client code to render customer service page so that worker can talk with people
+ });
+
+ router.post('/api/updatecsunread', function(req, res) {
+   console.log('req:' + JSON.stringify(req.body));
+  //  UserModel.findOne({number:})
+ })
+
+
+
+ //APP side api
+ router.get('/api/fetchlist', function(req, res) {
+   var data = req.query;
+   console.log("request regarding list: " + CircularJSON.stringify(data));
+   // page start from 0
+   var option = {
+     limit: 10,
+     skip: 10 * data.page
+   }
+   RecipeModel.find( { type: data.type }, {}, option, function(err, data){
+     if(err) return err;
+     console.log('this is ok');
+     var arrs = [];
+     var obj = {};
+     data.forEach(function(item){
+       obj = {title: item.title, imgUrl: item.mainImgUrl};
+       arrs.push(obj)
+     })
+     res.json({success: 'list is ready', data: arrs})
+   })
+ });
+
+ router.get('/api/fetchmainpagecontent', async function(req, res) {
+  //  var data = req.query;
+  //  console.log("request regarding list: " + CircularJSON.stringify(data));
+   // page start from 0
+   var option = {
+     limit: 5
+   }
+   var arr = ['本周流行菜谱', '热门项目', '活动折扣', '最新上架']
+   var pack = []
+   var obj = {};
+   var typeArray = []
+   myAsync.forEach(arr, async function (type) {
+     await RecipeModel.find({ type: type }, {}, option, function(err, data){
+       if(err) return err;
+       console.log('main page content bingo!');
+       typeArray = []
+       data.forEach(function(item){
+         obj = {title: item.title, imgUrl: item.mainImgUrl, tag: item.tag};
+         typeArray.push(obj)
+       })
+       obj = {type: type, data: typeArray}
+       pack.push(obj)
+     })
+    }, function (err) {
+        if (err) {
+          console.error(err.message);
+        } else {
+          console.log('main page data: ' + CircularJSON.stringify(pack));
+          res.json({success: 'main page content is ready', data: pack})
+        }
+    });
+ });
+
+ router.get('/api/fetchfavoriteorread', function(req, res) {
+   var data = req.query;
+   console.log("request regarding list of favorite or read: " + CircularJSON.stringify(data));
+   // page start from 0
+   var option = {
+     limit: 10,
+     skip: 10 * data.page
+   }
+   var topic = ''
+   if(data.index === 0) {
+     topic = 'favorites'
+   } else {
+     topic = 'reads'
+   }
+   var arr = []
+   var obj = {}
+   UserModel.findOne({number: data.userid}).populate({ path: topic, options: option }).exec(function(err, data){
+     if(err) return err;
+     console.log('getting topic list for specific users');
+     data.forEach(function(item){
+       obj = {tag: item.tag, imgUrl: item.mainImgUrl, title: item.title}
+       arr.push(obj)
+     })
+   })
+   res.json({success: 'topic data is ready', data: arr})
+ });
+
+router.get('/api/fetchrecipe', function(req, res) {
+  var data = req.query
+  console.log('something');
+  RecipeModel.findById(ObjectId(data.id), function(err, data) {
+    if(err) return err;
+    console.log('getting recipe detail: ' + JSON.stringify(data));
+    res.json({success: 'ok', data: data})
+  })
+})
+
+router.get('/api/addFavorite', function(req, res) {
+  var data = req.query
+  console.log('addFavorite');
+  UserModel.findOne({number: data.userId}, function(err, user) {
+     user.favorites.push(data.recipeId);
+     user.save(function(err, data){
+       console.log('增加favorite成功： ' + data)
+       res.json({success: 'ok'})
+     })
+   })
+})
+
+
 
  module.exports = router;
