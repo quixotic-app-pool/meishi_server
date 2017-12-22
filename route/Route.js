@@ -5,7 +5,7 @@
  * @Project: one_server
  * @Filename: Route.js
  * @Last modified by:   mymac
- * @Last modified time: 2017-12-21T16:50:46+08:00
+ * @Last modified time: 2017-12-22T18:35:53+08:00
  */
 
   var express = require('express');
@@ -23,10 +23,16 @@
   var RecipeModel = require("../models/recipe");
   var UserModel = require("../models/user");
   var CategoryModel = require("../models/category");
+  var CustomerServiceModel = require('../models/CustomerService');
   var mongoose = require('mongoose');
   const ObjectId = mongoose.Types.ObjectId
 
   var aliService = require('../aliyun/AliService')
+
+
+  const topicArray = ['本周流行菜谱', '活动折扣', '热门项目', '最新上架']
+
+
 
   //Middle ware that is specific to this router
  router.use(function timeLog(req, res, next) {
@@ -179,6 +185,45 @@
      })
    })
  });
+ router.post('/api/csnumber', function(req, res) {
+   var phoneNumber = req.body.number;
+   //need to interact with ali code
+   aliService.sendSMS(phoneNumber, function(num, sixdigitcode) {
+     //check if phonenumber is used or not
+     CustomerServiceModel.findOne({number: num}, function(err, data) {
+       console.log('err: ' + err);
+       console.log('data: ' + data);
+       if(err) {
+         return err
+       } else {
+         if(data) {
+           data.sixdigitcode = sixdigitcode;
+           data.save();
+           console.log('ali message has been sent to customer servicebos');
+           res.json({success: 'ok'})
+         }
+         console.log('unable to find customer service account in database');
+         res.json({success: 'fail'})
+       }
+     })
+   })
+ });
+ router.post('/api/verifycs', function(req, res) {
+   var sixdigitcode = req.body.sixdigitcode;
+   var number = req.body.number;
+     CustomerServiceModel.findOne({number: number}, function(err, data) {
+       if(err) return err;
+       if(!data) {
+          res.send({success: 'fail'})
+       } else {
+          if(data.sixdigitcode !== sixdigitcode) {
+            res.json({success: 'fail'})
+          } else {
+            res.json({success: 'ok'})
+          }
+       }
+   })
+ });
  router.post('/api/verify', function(req, res) {
    var sixdigitcode = req.body.sixdigitcode;
    var number = req.body.number
@@ -281,7 +326,7 @@
  //APP side api
  router.get('/api/fetchlist', function(req, res) {
    // TODO:
-   //I dont know whatis happening most time data is not availbale from this
+   //I dont know what is happening most time data is not availbale from this
    var data = req.query;
    console.log("request regarding list: " + CircularJSON.stringify(data));
    // page start from 0
@@ -290,13 +335,13 @@
      skip: 10 * data.page
    }
    console.log('data.type: ' + data.type);
-   RecipeModel.find( { type: data.type }, {}, option, function(err, data){
+   RecipeModel.find( { type: topicArray[data.type] }, {}, option, function(err, data){
      if(err) return err;
      var arrs = [];
      var obj = {};
      console.log("data: " + data);
      data.forEach(function(item){
-       obj = {title: item.title, imgUrl: item.mainImgUrl};
+       obj = {title: item.title, imgUrl: item.mainImgUrl, tag: item.tag, _id: item._id};
        arrs.push(obj)
      })
      res.json({success: 'list is ready', data: arrs})
@@ -310,11 +355,10 @@
    var option = {
      limit: 5
    }
-   var arr = ['活动折扣', '热门项目', '最新上架']
    var pack = []
    var obj = {};
    var typeArray = []
-   myAsync.forEach(arr, async function (type) {
+   myAsync.eachOf(topicArray, async function (type, index) {
      await RecipeModel.find({ type: type }, {}, option, function(err, data){
        if(err) return err;
        console.log('main page content bingo!');
@@ -324,7 +368,7 @@
          typeArray.push(obj)
        })
        obj = {type: type, data: typeArray}
-       pack.push(obj)
+       pack[index] = obj
      })
     }, function (err) {
         if (err) {
