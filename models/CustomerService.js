@@ -5,7 +5,7 @@
  * @Project: one_server
  * @Filename: CustomerService.js
  * @Last modified by:   mymac
- * @Last modified time: 2017-12-22T18:19:53+08:00
+ * @Last modified time: 2017-12-23T12:31:09+08:00
  */
 
  var mongoose = require('mongoose');
@@ -14,7 +14,8 @@
 
  var csSchema = new Schema({
       number: { type: String, default: ''},
-      sixdigitcode: { type: String, default: ''}
+      sixdigitcode: { type: String, default: ''},
+      online: { type: Boolean, default: false }
  })
 
  module.exports = mongoose.model('CustomerService', csSchema);

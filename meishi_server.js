@@ -5,7 +5,7 @@
  * @Project: one_server
  * @Filename: server.js
  * @Last modified by:   mymac
- * @Last modified time: 2017-12-21T13:08:20+08:00
+ * @Last modified time: 2017-12-23T12:40:05+08:00
  */
  var express  = require('express');
  var mongoose = require('mongoose');
@@ -21,6 +21,8 @@
  // 使用body-parser解析post请求的参数，如果没有，req.body为undefined。
  var route = require('./route/Route');
  var database = require('./config/Database')
+
+var CustomerServiceModel = require('./models/CustomerService');
 
  //Routes
  app.use(route);
@@ -84,6 +86,7 @@ var socketToUser = {}
 var chatId = 1;
 
 var customerServiceSocketId = ''
+var validCSID = '13913351453'
 
 websocket.on('connection', (socket) => {
    //  console.log('user connected!');
@@ -101,10 +104,21 @@ websocket.on('connection', (socket) => {
 });
 
 function whenDisconnected(socket) {
-  //remove the record so that mark it as offline
-  var userId = socketToUser[socket.id];
-  delete socketToUser[socket.id];
-  delete userToSocket[userId];
+  //check if cs go offline
+  if(customerServiceSocketId == socket.id) {
+    CustomerServiceModel.findOne({number: validCSID}, function(err, data) {
+      if(err) return err;
+      if(data && data.online) {
+        data.online = false
+        data.save()
+      }
+    })
+  } else {
+    //remove the record so that mark it as offline
+    var userId = socketToUser[socket.id];
+    delete socketToUser[socket.id];
+    delete userToSocket[userId];
+  }
 }
 
 function customerServiceMessage(msgData, socket) {
@@ -112,7 +126,6 @@ function customerServiceMessage(msgData, socket) {
   var userSocket = userToSocket[user]
   UserModel.findOneAndUpdate({number: user}, {$push: {messages: msgData.message}, $inc: {userunread: 1}}, {new: true}, function(err, data) {
        if(err) return err
-
        if(!userSocket) {
          //user is offline, then message will show next time when user log in
        } else {
@@ -125,8 +138,16 @@ function customerServiceMessage(msgData, socket) {
 function customerServiceConnected(data, socket) {
   customerServiceSocketId = socket.id
   console.log('this socket is from customer service, socketId is: ' + socket.id);
-  // send users messages
-  moreUsers(0, socket)
+  //here I set a firewall in case of hacker from client side
+  CustomerServiceModel.findOne({number: validCSID}, function(err, data) {
+    if(err) return err;
+    if(data && data.online) {
+      // send users messages
+      moreUsers(0, socket)
+    } else {
+      socket.emit('users', {info: 'you don\'t have right to access!'})
+    }
+  })
 }
 function moreUsers(page, socket) {
   var option = {

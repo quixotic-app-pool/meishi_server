@@ -5,7 +5,7 @@
  * @Project: one_server
  * @Filename: Route.js
  * @Last modified by:   mymac
- * @Last modified time: 2017-12-22T18:35:53+08:00
+ * @Last modified time: 2017-12-23T12:31:39+08:00
  */
 
   var express = require('express');
@@ -31,6 +31,12 @@
 
 
   const topicArray = ['本周流行菜谱', '活动折扣', '热门项目', '最新上架']
+
+// create a cs copy
+// csEntity = new CustomerServiceModel({
+//   number: 13913351453
+// })
+// csEntity.save()
 
 
 
@@ -187,12 +193,14 @@
  });
  router.post('/api/csnumber', function(req, res) {
    var phoneNumber = req.body.number;
+   console.log('req.body: ' + req.body);
    //need to interact with ali code
    aliService.sendSMS(phoneNumber, function(num, sixdigitcode) {
      //check if phonenumber is used or not
      CustomerServiceModel.findOne({number: num}, function(err, data) {
        console.log('err: ' + err);
        console.log('data: ' + data);
+       console.log("sixdigitcode: " + sixdigitcode);
        if(err) {
          return err
        } else {
@@ -201,9 +209,10 @@
            data.save();
            console.log('ali message has been sent to customer servicebos');
            res.json({success: 'ok'})
+         } else {
+           console.log('unable to find customer service account in database');
+           res.json({success: 'fail'})
          }
-         console.log('unable to find customer service account in database');
-         res.json({success: 'fail'})
        }
      })
    })
@@ -211,6 +220,8 @@
  router.post('/api/verifycs', function(req, res) {
    var sixdigitcode = req.body.sixdigitcode;
    var number = req.body.number;
+  //  console.log('verifycs sixdigitcode: ' + sixdigitcode);
+  //  console.log('verifycs number: ' + number);
      CustomerServiceModel.findOne({number: number}, function(err, data) {
        if(err) return err;
        if(!data) {
@@ -220,6 +231,8 @@
             res.json({success: 'fail'})
           } else {
             res.json({success: 'ok'})
+            data.online = true
+            data.save()
           }
        }
    })

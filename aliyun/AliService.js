@@ -5,7 +5,7 @@
  * @Project: one_server
  * @Filename: SendSms.js
  * @Last modified by:   mymac
- * @Last modified time: 2017-12-08T13:39:13+08:00
+ * @Last modified time: 2018-01-23T11:23:30+08:00
  */
 
 //https://help.aliyun.com/document_detail/57458.html?spm=5176.10629532.106.4.23537d5bXdemI8
@@ -16,8 +16,8 @@
  */
 const SMSClient = require('@alicloud/sms-sdk')
 // ACCESS_KEY_ID/ACCESS_KEY_SECRET 根据实际申请的账号信息进行替换
-const accessKeyId = 'LTAICHhDVE9MNQ4Y'
-const secretAccessKey = 'Y9OjF7IxVECeqF94iv7Z5Q5EJ41HrA'
+const accessKeyId = ''
+const secretAccessKey = ''
 //初始化sms_client
 let smsClient = new SMSClient({accessKeyId, secretAccessKey})
 
